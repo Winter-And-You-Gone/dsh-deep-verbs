@@ -34,9 +34,10 @@ globalThis.document = {
   querySelectorAll: (sel) => (sel === 'div[role="status"]' ? [...statuses] : []),
   addEventListener() { throw new Error('DOMContentLoaded 不应被订阅：body 已存在') },
 }
+let observeOptions = null
 globalThis.MutationObserver = class {
   constructor(cb) { observerCb = cb }
-  observe() {}
+  observe(_target, options) { observeOptions = options }
 }
 globalThis.setInterval = (cb, ms) => { tick = cb; tickMs = ms; return 1 }
 
@@ -98,14 +99,13 @@ tick()
 assert.ok(s1.text.endsWith('2分09秒'), '计时 span 应保留')
 assert.ok(inPool(s1.text.slice(0, -'2分09秒'.length)), '轮换后短语应在池内')
 
-// ---- 4) React 回写兜底：恢复当前短语（不是内置文案，也不是别的词） ----
-const before = s1.text.slice(0, -'2分09秒'.length)
+// ---- 4) React 回写兜底：observer 不订阅 characterData，兜底由 3 秒 tick 的 sweep 修复 ----
 s1.revertBuiltin()
-await flushSweep()
-assert.equal(s1.text, before + '2分09秒', '回写后应恢复当前短语')
+tick() // tick 先 sweep（兜底）再推进轮换
+assert.ok(inPool(s1.text.slice(0, -'2分09秒'.length)), `回写后 tick 应恢复为池内短语：${s1.text}`)
+const lastLabel = s1.text.slice(0, -'2分09秒'.length)
 
 // ---- 5) 新回合：旧元素卸载后新元素认领新词（与上一条不同） ----
-const lastLabel = before
 statuses.length = 0
 const s2 = new FakeStatus()
 statuses.push(s2)
@@ -132,4 +132,66 @@ statuses.push(bare)
 await flushSweep()
 tick() // 不应抛错
 
-console.log('dsh-deep-verbs verify: all 8 checks passed ✓')
+// ---- 9) 风暴回归：current 恰为原版 "Deep diving..." 时零写入 ----
+// 2026-08-17 冻结事故：Text.data 同值赋值也会入队 characterData mutation
+// record，恢复分支的同值覆写会再次触发本插件自己的 observer，形成
+// sweep→observe→sweep 微任务风暴饿死事件循环。修复后的不变量：
+// 状态行文本已等于 current（含 current === BUILTIN 的稳态）时，
+// 任意次 observer→sweep 循环都不得产生任何 DOM 写入。
+{
+  let writes = 0
+  const countingNode = (data) => {
+    let v = data
+    return { nodeType: 3, get data() { return v }, set data(x) { writes++; v = x } }
+  }
+  const s3 = {
+    childNodes: [countingNode('Deep diving...')],
+    get firstChild() { return this.childNodes[0] ?? null },
+    get text() { return this.childNodes[0].data },
+  }
+  statuses.length = 0
+  statuses.push(s3)
+  await flushSweep() // 认领（写入 0 或 1 次均合法，取决于袋首是否抽中原版）
+
+  // 驱动轮换直到抽中原版短语（13 条洗牌袋，≤13 次 tick 必现）
+  let hit = 0
+  for (let i = 0; i < 26 && s3.text !== 'Deep diving...'; i++) { tick(); hit++ }
+  assert.equal(s3.text, 'Deep diving...', '26 次 tick 内应轮换到原版短语')
+
+  // 稳态风暴检验：current === BUILTIN 窗口内，sweep 循环零写入
+  const before = writes
+  for (let i = 0; i < 5; i++) await flushSweep()
+  assert.equal(writes, before, `current===BUILTIN 稳态下 sweep 不得写 DOM（多写了 ${writes - before} 次）`)
+
+  // React 回写兜底同样不得同值覆写（旧代码的风暴入口）
+  s3.childNodes[0].data = 'Deep diving...' // 模拟 React 回写（值恰好相同；此行本身 +1 次）
+  const afterReact = writes
+  for (let i = 0; i < 5; i++) await flushSweep()
+  assert.equal(writes, afterReact, '回写兜底遇 current===BUILTIN 必须跳过写入')
+
+  console.log(`  风暴回归：${hit === 0 ? '认领袋首' : `第 ${hit} 次轮换`}抽中原版短语，稳态 10 轮 sweep 零写入`)
+}
+
+// ---- 10) 同批挂载多行同步：多会话并排复用同一条短语 ----
+// hadTracked 在认领后立刻置位，同一批挂载的第二行不再另抽（否则 3 秒内
+// 两行显示不同短语，违反「多会话并排同步显示同一条」的文档承诺）。
+{
+  const a = new FakeStatus()
+  const b = new FakeStatus()
+  statuses.length = 0
+  statuses.push(a, b)
+  await flushSweep()
+  assert.ok(inPool(a.text), `首行应在短语池内：${a.text}`)
+  assert.equal(a.text, b.text, `同批挂载的两行应显示同一条：${a.text} vs ${b.text}`)
+  console.log(`  同批同步：两行同时挂载均显示 ${a.text}`)
+}
+
+// ---- 11) observer 订阅面契约：仅 childList+subtree，不订阅 characterData ----
+// characterData 会让流式输出的每次文本变更都触发全文档扫描（2026-08-17
+// review 建议项，已实施）；此断言防止未来被随手加回去。
+assert.ok(observeOptions && observeOptions.childList === true && observeOptions.subtree === true,
+  `应订阅 childList+subtree：${JSON.stringify(observeOptions)}`)
+assert.ok(!observeOptions.characterData, '不得订阅 characterData（流式期间高频文本变更会放大扫描开销）')
+console.log('  订阅面：childList+subtree only（characterData 未订阅）')
+
+console.log('dsh-deep-verbs verify: all 11 checks passed ✓')

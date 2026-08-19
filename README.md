@@ -46,7 +46,7 @@ pwsh install.ps1            # 或 powershell -ExecutionPolicy Bypass -File insta
 ## 工作原理
 
 不改 DSH 源码、不覆盖渲染插槽。`ui-conversation` 的 TurnStatus 渲染为
-`<div role="status">Deep diving...<span>计时</span></div>`；React 每秒重渲但字符串 child 不变时不会回写 DOM 文本节点，因此插件在浏览器侧把该文本节点改写成当前短语即可长期保留。`MutationObserver` 认领新回合挂载的状态元素，`setInterval` 每 3 秒推进一次洗牌袋并同步到所有活动状态行（多会话并排时保持同一条）；若 React 某天回写了内置文案，扫描时会把当前短语补回去。
+`<div role="status">Deep diving...<span>计时</span></div>`；React 每秒重渲但字符串 child 不变时不会回写 DOM 文本节点，因此插件在浏览器侧把该文本节点改写成当前短语即可长期保留。`MutationObserver`（仅订阅 childList，流式文本变更不触发扫描）认领新回合挂载的状态元素，`setInterval` 每 3 秒推进一次洗牌袋并同步到所有活动状态行（多会话并排时保持同一条，同批挂载也复用同一条）；若 React 某天回写了内置文案，3 秒轮换的扫描会把短语补回去。
 
 插件只匹配精确的内置文本 `Deep diving...`：未来 DSH 改动这句文案时，插件自动退化为 no-op，不影响任何界面。
 
