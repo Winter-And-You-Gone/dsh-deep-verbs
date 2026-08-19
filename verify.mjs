@@ -1,6 +1,6 @@
-// dsh-deep-verbs 自测：不依赖浏览器，用极小 DOM shim 直接驱动 client.js
-// bundle 的注册 → materialize → apply → 认领/3秒轮换/兜底全路径。
-// 运行：node verify.mjs
+// dsh-deep-verbs 自测：不依赖浏览器，用极小 DOM shim + 假时钟直接驱动
+// client.js bundle 的注册 → materialize → apply → 认领/事件轮换/保底节流/
+// 兜底全路径。运行：node verify.mjs
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
 import assert from 'node:assert/strict'
@@ -20,10 +20,53 @@ class FakeStatus {
   get text() { return this.childNodes.map((n) => n.data).join('') }
 }
 
+/** 对话行（ChatNodeSeat 的 <div data-chat-flow-kind=...>） */
+const row = (kind) => ({
+  nodeType: 1,
+  hasAttribute: (n) => n === 'data-chat-flow-kind',
+  getAttribute: (n) => (n === 'data-chat-flow-kind' ? kind : null),
+  querySelectorAll: () => [],
+})
+
+/** 一次挂载带出多行的容器节点（大子树整体 mount） */
+const rowContainer = (...rows) => ({
+  nodeType: 1,
+  hasAttribute: () => false,
+  getAttribute: () => null,
+  querySelectorAll: (sel) => (sel === '[data-chat-flow-kind]' ? rows : []),
+})
+
 const statuses = []
 let observerCb = null
-let tick = null
-let tickMs = null
+let observeOptions = null
+let maintain = null
+let maintainMs = null
+
+// ---- 假时钟：Date.now 可推进，setTimeout 到点自动触发 ----
+let now = 1_000_000
+Date.now = () => now
+let timerSeq = 0
+const timers = new Map()
+globalThis.setTimeout = (cb, ms) => {
+  const id = ++timerSeq
+  timers.set(id, { at: now + (ms || 0), cb, done: false })
+  return id
+}
+globalThis.clearTimeout = (id) => { const t = timers.get(id); if (t) t.done = true }
+function advance(ms) {
+  const target = now + ms
+  for (;;) {
+    let due = null
+    for (const t of timers.values()) {
+      if (!t.done && t.at <= target && (!due || t.at < due.at)) due = t
+    }
+    if (!due) break
+    now = due.at
+    due.done = true
+    due.cb()
+  }
+  now = target
+}
 
 globalThis.window = globalThis // 命中 bundle 顶部的 typeof window 守卫
 globalThis.__ModuleLoader__ = {
@@ -34,12 +77,18 @@ globalThis.document = {
   querySelectorAll: (sel) => (sel === 'div[role="status"]' ? [...statuses] : []),
   addEventListener() { throw new Error('DOMContentLoaded 不应被订阅：body 已存在') },
 }
-let observeOptions = null
 globalThis.MutationObserver = class {
   constructor(cb) { observerCb = cb }
   observe(_target, options) { observeOptions = options }
 }
-globalThis.setInterval = (cb, ms) => { tick = cb; tickMs = ms; return 1 }
+globalThis.setInterval = (cb, ms) => { maintain = cb; maintainMs = ms; return 1 }
+
+/** 模拟一批 childList mutation（新挂载若干节点）并等微任务里的合并处理跑完 */
+const flush = async () => { await Promise.resolve() }
+const fireMutations = async (...addedNodes) => {
+  observerCb([{ addedNodes }])
+  await flush()
+}
 
 // ---- 注册 + 物化 bundle ----
 const src = readFileSync(new URL('./client.js', import.meta.url), 'utf8')
@@ -52,8 +101,7 @@ const plugin = vm.runInThisContext('globalThis.__handoff.factory((id) => { throw
 assert.equal(typeof plugin.apply, 'function')
 
 plugin.apply()
-assert.equal(tickMs, 3000, '轮换周期应为 3000ms')
-const flushSweep = async () => { observerCb(); await Promise.resolve() } // 微任务里的合并 sweep
+assert.equal(maintainMs, 3000, '维护扫描周期应为 3000ms')
 
 const ALL = [
   'deep diving', 'deep seeking', 'deep delving', 'deep surfacing', 'deep breaching',
@@ -65,79 +113,114 @@ const inPool = (s) => ALL.includes(s)
 // ---- 1) 认领：新回合挂载 → 短语池内的一条 ----
 const s1 = new FakeStatus()
 statuses.push(s1)
-await flushSweep()
+await fireMutations(s1)
 assert.ok(inPool(s1.text), `认领后应在短语池内：${s1.text}`)
 assert.ok(s1.text.endsWith('...'), '应保留省略号')
 
-// ---- 2) 3 秒轮换：tick 后换词；60 次 tick 无连续重复、全在池内 ----
+// ---- 2) 事件驱动轮换：新 assistant-step / tool-call 行 → 换词 ----
+// 开场词刚认领，事件必须先过保底窗口；窗口外的事件立即切换
 const labels = [s1.text]
-for (let i = 0; i < 60; i++) {
-  tick()
-  assert.ok(inPool(s1.text), `第 ${i + 1} 次轮换应在池内：${s1.text}`)
+for (let i = 0; i < 15; i++) {
+  advance(3000)
+  await fireMutations(row(i % 2 ? 'tool-call' : 'assistant-step'))
+  assert.ok(inPool(s1.text), `第 ${i + 1} 次事件轮换应在池内：${s1.text}`)
   assert.notEqual(s1.text, labels[labels.length - 1], `第 ${i + 1} 次轮换不应与上一条相同`)
   labels.push(s1.text)
 }
 const unique = new Set(labels)
-assert.ok(unique.size >= 10, `60 次轮换应覆盖大部分短语，实际 ${unique.size} 种`)
-console.log(`  轮换覆盖：61 个周期出现 ${unique.size}/13 种，无连续重复`)
+assert.ok(unique.size >= 10, `16 次展示应覆盖大部分短语，实际 ${unique.size} 种`)
+console.log(`  事件轮换：16 个事件周期出现 ${unique.size}/13 种，无连续重复`)
 
-// ---- 2b) 顺序随机：洗牌袋 = 整袋洗乱后逐个弹出，绝不按列表顺序 ----
-// 第一袋 = labels 前 13 条（认领 + 12 次轮换，恰好一整袋的弹出序）
-const firstCycle = labels.slice(0, 13)
-assert.notDeepEqual(firstCycle, ALL, '不应按列表顺序出现')
-// 按列表顺序执行的特征是"每一条都是池中下一条"：随机洗牌下 12 个转移里期望约 1 个
-let succ = 0
-for (let i = 1; i < firstCycle.length; i++) {
-  if (ALL.indexOf(firstCycle[i]) === ALL.indexOf(firstCycle[i - 1]) + 1) succ++
-}
-assert.ok(succ < 6, `相邻转移过于顺序化（${succ}/12），疑似按列表顺序`)
-console.log(`  第一袋实际弹出序（前6条）：${firstCycle.slice(0, 6).join(' → ')}`)
+// ---- 2b) 长时间纯思考（无新行挂载、无待切事件）短语保持不变 ----
+const quietLabel = s1.text
+advance(60_000)
+assert.equal(s1.text, quietLabel, '无事件的 60 秒静默不应换词（不再定时轮换）')
+await maintain()
+assert.equal(s1.text, quietLabel, '维护扫描不得推进短语')
+console.log('  长静默：60 秒无事件 + 维护扫描，短语保持不变')
 
-// ---- 3) 计时器共存：轮换只动文本节点，clock 原样保留 ----
+// ---- 3) 保底节流：窗口内事件只记 pending，窗口边界补切一次 ----
+// 上一次展示发生在 60 秒前，先制造一次立即切换作为窗口起点
+await fireMutations(row('tool-call'))
+const anchorLabel = s1.text
+advance(100) // 窗口内 100ms
+await fireMutations(row('tool-call'))
+assert.equal(s1.text, anchorLabel, '窗口内的事件不得立即换词')
+advance(200) // 仍在窗口内（距上次切换 300ms）
+await fireMutations(row('assistant-step'))
+assert.equal(s1.text, anchorLabel, '窗口内第二个事件也不得换词（合并）')
+advance(2700) // 到达 lastSwitch + 3000 边界，补切恰好发生一次
+assert.notEqual(s1.text, anchorLabel, '窗口边界应补切一次')
+assert.ok(inPool(s1.text), `补切后应在池内：${s1.text}`)
+const releasedLabel = s1.text
+await flush()
+assert.equal(s1.text, releasedLabel, '补切后不得再次换词（多事件只合并为一次）')
+
+// ---- 4) 静默已久的事件立即切换（保底只是下限，不是节拍） ----
+advance(60_000)
+await fireMutations(row('tool-call'))
+assert.notEqual(s1.text, releasedLabel, '久违的事件应立即换词')
+assert.ok(inPool(s1.text), `立即切换后应在池内：${s1.text}`)
+
+// ---- 5) 计时器共存：切换只动文本节点，clock 原样保留 ----
 s1.appendClock()
-tick()
+advance(3000)
+await fireMutations(row('assistant-step'))
 assert.ok(s1.text.endsWith('2分09秒'), '计时 span 应保留')
-assert.ok(inPool(s1.text.slice(0, -'2分09秒'.length)), '轮换后短语应在池内')
+assert.ok(inPool(s1.text.slice(0, -'2分09秒'.length)), '切换后短语应在池内')
 
-// ---- 4) React 回写兜底：observer 不订阅 characterData，兜底由 3 秒 tick 的 sweep 修复 ----
+// ---- 6) React 回写兜底：维护扫描恢复当前短语，且不推进 ----
+const beforeRepair = s1.text.slice(0, -'2分09秒'.length)
 s1.revertBuiltin()
-tick() // tick 先 sweep（兜底）再推进轮换
-assert.ok(inPool(s1.text.slice(0, -'2分09秒'.length)), `回写后 tick 应恢复为池内短语：${s1.text}`)
-const lastLabel = s1.text.slice(0, -'2分09秒'.length)
+maintain() // 维护扫描修复，不换词
+assert.equal(s1.text, beforeRepair + '2分09秒', '回写后应恢复当前短语（不推进）')
 
-// ---- 5) 新回合：旧元素卸载后新元素认领新词（与上一条不同） ----
+// ---- 7) 非触发 kind 不换词：user / command 不是模型活动 ----
+advance(3000)
+await fireMutations(row('user'), row('command'))
+assert.equal(s1.text.slice(0, -'2分09秒'.length), beforeRepair, 'user/command 行不得触发轮换')
+
+// ---- 8) 重插入去重：同一行对象再次挂载不算新事件 ----
+const dupRow = row('tool-call')
+await fireMutations(dupRow) // 首次挂载：立即切换（窗口早已过）
+const afterFirst = s1.text.slice(0, -'2分09秒'.length)
+advance(3000)
+await fireMutations(dupRow) // 模拟 React 移除后重插入
+assert.equal(s1.text.slice(0, -'2分09秒'.length), afterFirst, '重插入的行不得再次触发')
+
+// ---- 9) 容器挂载：大子树带出的触发行同样计入 ----
+advance(3000)
+await fireMutations(rowContainer(row('assistant-step'), row('tool-call')))
+assert.notEqual(s1.text.slice(0, -'2分09秒'.length), afterFirst, '容器内的新行应触发轮换')
+
+// ---- 10) 回合未运行时的事件被忽略，且不得泄漏 pending 到下一回合 ----
 statuses.length = 0
+await fireMutations(row('tool-call'))
+advance(10_000)
 const s2 = new FakeStatus()
 statuses.push(s2)
-await flushSweep()
-assert.ok(inPool(s2.text), `新回合短语应在池内：${s2.text}`)
-assert.notEqual(s2.text, lastLabel, '新回合开场应换新词')
+await fireMutations(s2)
+const turnLabel = s2.text
+assert.ok(inPool(turnLabel), `新回合短语应在池内：${turnLabel}`)
+assert.notEqual(turnLabel, beforeRepair, '新回合开场应换新词')
+advance(5000) // 若上一回合的事件泄漏成 pending，此处会提前换词
+assert.equal(s2.text, turnLabel, '无事件时不得换词（pending 未泄漏）')
 
-// ---- 6) 无活动状态行时 tick 安全空转 ----
-statuses.length = 0
-tick() // 不应抛错、不应推进（无从观察推进，至少证明不崩）
+// ---- 11) 新回合开场的保底窗口：认领后 3 秒内的事件推迟补切 ----
+await fireMutations(row('assistant-step')) // 距认领 5 秒，立即切换
+const midLabel = s2.text
+advance(100)
+await fireMutations(row('tool-call'))
+assert.equal(s2.text, midLabel, '新词亮够 3 秒前不得再切')
+advance(2900)
+assert.notEqual(s2.text, midLabel, '到点应补切')
 
-// ---- 7) 陌生文案不碰：role=status 但文本不是内置锚点 ----
-const other = new FakeStatus('Uploading assets...')
-statuses.length = 0
-statuses.push(other)
-await flushSweep()
-tick()
-assert.equal(other.text, 'Uploading assets...', '非内置文案必须原样保留')
-
-// ---- 8) 空元素/无文本节点安全跳过 ----
-const bare = { childNodes: [], get firstChild() { return null } }
-statuses.length = 0
-statuses.push(bare)
-await flushSweep()
-tick() // 不应抛错
-
-// ---- 9) 风暴回归：current 恰为原版 "Deep diving..." 时零写入 ----
+// ---- 12) 风暴回归：current 恰为原版 "Deep diving..." 时零写入 ----
 // 2026-08-17 冻结事故：Text.data 同值赋值也会入队 characterData mutation
 // record，恢复分支的同值覆写会再次触发本插件自己的 observer，形成
 // sweep→observe→sweep 微任务风暴饿死事件循环。修复后的不变量：
 // 状态行文本已等于 current（含 current === BUILTIN 的稳态）时，
-// 任意次 observer→sweep 循环都不得产生任何 DOM 写入。
+// 任意次 observer→sweep 循环 / 维护扫描都不得产生任何 DOM 写入。
 {
   let writes = 0
   const countingNode = (data) => {
@@ -151,42 +234,45 @@ tick() // 不应抛错
   }
   statuses.length = 0
   statuses.push(s3)
-  await flushSweep() // 认领（写入 0 或 1 次均合法，取决于袋首是否抽中原版）
+  await fireMutations(s3) // 认领（写入 0 或 1 次均合法，取决于袋首是否抽中原版）
 
-  // 驱动轮换直到抽中原版短语（13 条洗牌袋，≤13 次 tick 必现）
+  // 驱动事件轮换直到抽中原版短语（13 条洗牌袋，≤13 次切换必现）
   let hit = 0
-  for (let i = 0; i < 26 && s3.text !== 'Deep diving...'; i++) { tick(); hit++ }
-  assert.equal(s3.text, 'Deep diving...', '26 次 tick 内应轮换到原版短语')
+  for (let i = 0; i < 26 && s3.text !== 'Deep diving...'; i++) {
+    advance(3000)
+    await fireMutations(row('tool-call'))
+    hit++
+  }
+  assert.equal(s3.text, 'Deep diving...', '26 次事件内应轮换到原版短语')
 
-  // 稳态风暴检验：current === BUILTIN 窗口内，sweep 循环零写入
-  const before = writes
-  for (let i = 0; i < 5; i++) await flushSweep()
-  assert.equal(writes, before, `current===BUILTIN 稳态下 sweep 不得写 DOM（多写了 ${writes - before} 次）`)
+  // 稳态风暴检验：current === BUILTIN 窗口内，sweep 循环与维护扫描零写入
+  const steady = writes
+  for (let i = 0; i < 5; i++) await fireMutations()
+  for (let i = 0; i < 5; i++) maintain()
+  assert.equal(writes, steady, `current===BUILTIN 稳态下扫描不得写 DOM（多写了 ${writes - steady} 次）`)
 
   // React 回写兜底同样不得同值覆写（旧代码的风暴入口）
   s3.childNodes[0].data = 'Deep diving...' // 模拟 React 回写（值恰好相同；此行本身 +1 次）
   const afterReact = writes
-  for (let i = 0; i < 5; i++) await flushSweep()
+  for (let i = 0; i < 5; i++) maintain()
   assert.equal(writes, afterReact, '回写兜底遇 current===BUILTIN 必须跳过写入')
 
-  console.log(`  风暴回归：${hit === 0 ? '认领袋首' : `第 ${hit} 次轮换`}抽中原版短语，稳态 10 轮 sweep 零写入`)
+  console.log(`  风暴回归：${hit === 0 ? '认领袋首' : `第 ${hit} 次轮换`}抽中原版短语，稳态 10 轮扫描零写入`)
 }
 
-// ---- 10) 同批挂载多行同步：多会话并排复用同一条短语 ----
-// hadTracked 在认领后立刻置位，同一批挂载的第二行不再另抽（否则 3 秒内
-// 两行显示不同短语，违反「多会话并排同步显示同一条」的文档承诺）。
+// ---- 13) 同批挂载多行同步：多会话并排复用同一条短语 ----
 {
   const a = new FakeStatus()
   const b = new FakeStatus()
   statuses.length = 0
   statuses.push(a, b)
-  await flushSweep()
+  await fireMutations(a, b)
   assert.ok(inPool(a.text), `首行应在短语池内：${a.text}`)
   assert.equal(a.text, b.text, `同批挂载的两行应显示同一条：${a.text} vs ${b.text}`)
   console.log(`  同批同步：两行同时挂载均显示 ${a.text}`)
 }
 
-// ---- 11) observer 订阅面契约：仅 childList+subtree，不订阅 characterData ----
+// ---- 14) observer 订阅面契约：仅 childList+subtree，不订阅 characterData ----
 // characterData 会让流式输出的每次文本变更都触发全文档扫描（2026-08-17
 // review 建议项，已实施）；此断言防止未来被随手加回去。
 assert.ok(observeOptions && observeOptions.childList === true && observeOptions.subtree === true,
@@ -194,4 +280,4 @@ assert.ok(observeOptions && observeOptions.childList === true && observeOptions.
 assert.ok(!observeOptions.characterData, '不得订阅 characterData（流式期间高频文本变更会放大扫描开销）')
 console.log('  订阅面：childList+subtree only（characterData 未订阅）')
 
-console.log('dsh-deep-verbs verify: all 11 checks passed ✓')
+console.log('dsh-deep-verbs verify: all 14 checks passed ✓')
