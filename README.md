@@ -1,4 +1,4 @@
-# dsh-more-emotions
+# dsh-deep-verbs
 
 DeepSeek Harness（DSH）纯前端插件：给思考状态行加表情。
 
@@ -28,18 +28,18 @@ DeepSeek Harness（DSH）纯前端插件：给思考状态行加表情。
 pwsh install.ps1            # 或 powershell -ExecutionPolicy Bypass -File install.ps1
 ```
 
-脚本会自动：优先选择 `~/.dsh/profiles/desktop`（桌面版），否则 `profiles/web`；把本目录 Junction 链接进 `profiles/node_modules/dsh-more-emotions`；在 profile 的 `cordis.patch.yml` 注册 insert。
+脚本会自动：优先选择 `~/.dsh/profiles/desktop`（桌面版），否则 `profiles/web`；把本目录 Junction 链接进 `profiles/node_modules/dsh-deep-verbs`；在 profile 的 `cordis.patch.yml` 注册 insert。
 
 然后**完全退出 DSH 进程**再重启（不是关窗口），自带窗口重启即可，浏览器访问则刷新页面。
 
 手动安装等价于：
 
-1. `mklink /J %USERPROFILE%\.dsh\profiles\node_modules\dsh-more-emotions <本目录>`
+1. `mklink /J %USERPROFILE%\.dsh\profiles\node_modules\dsh-deep-verbs <本目录>`
 2. 在 `<profile>\cordis.patch.yml` 追加：
    ```yaml
    - insert:
-       - id: dsh-more-emotions
-         name: 'dsh-more-emotions'
+       - id: dsh-deep-verbs
+         name: 'dsh-deep-verbs'
    ```
 3. 重启 DSH。
 
@@ -64,4 +64,4 @@ node verify.mjs
 
 ## 卸载
 
-删除 `profiles/node_modules/dsh-more-emotions` 链接，并移除 `cordis.patch.yml` 中对应的 `- insert` 块，重启 DSH。
+删除 `profiles/node_modules/dsh-deep-verbs` 链接，并移除 `cordis.patch.yml` 中对应的 `- insert` 块，重启 DSH。

@@ -1,4 +1,4 @@
-﻿# dsh-more-emotions 安装脚本
+﻿# dsh-deep-verbs 安装脚本
 # 纯插件安装：不改任何 @deepseek-ai/dsh-* 源码。
 #   1) 把插件包放进 profiles 的 node_modules（Junction 链接，与其他 dsh 插件同一约定）
 #   2) 在 profile 的 cordis.patch.yml 注册一行 insert

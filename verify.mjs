@@ -1,4 +1,4 @@
-// dsh-more-emotions 自测：不依赖浏览器，用极小 DOM shim 直接驱动 client.js
+// dsh-deep-verbs 自测：不依赖浏览器，用极小 DOM shim 直接驱动 client.js
 // bundle 的注册 → materialize → apply → 认领/3秒轮换/兜底全路径。
 // 运行：node verify.mjs
 import { readFileSync } from 'node:fs'
@@ -44,7 +44,7 @@ globalThis.setInterval = (cb, ms) => { tick = cb; tickMs = ms; return 1 }
 const src = readFileSync(new URL('./client.js', import.meta.url), 'utf8')
 vm.runInThisContext(src)
 assert.ok(globalThis.__handoff, 'bundle 未注册到 __ModuleLoader__')
-assert.equal(globalThis.__handoff.id, 'dsh-more-emotions')
+assert.equal(globalThis.__handoff.id, 'dsh-deep-verbs')
 
 // require 必须零调用：传一个会抛错的桩证明 bundle 无依赖
 const plugin = vm.runInThisContext('globalThis.__handoff.factory((id) => { throw new Error("unexpected require: " + id) })')
@@ -132,4 +132,4 @@ statuses.push(bare)
 await flushSweep()
 tick() // 不应抛错
 
-console.log('dsh-more-emotions verify: all 8 checks passed ✓')
+console.log('dsh-deep-verbs verify: all 8 checks passed ✓')

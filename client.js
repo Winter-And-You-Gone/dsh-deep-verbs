@@ -1,4 +1,4 @@
-// dsh-more-emotions: DeepSeek Harness 前端插件（纯插件，不改 DSH 源码）。
+// dsh-deep-verbs: DeepSeek Harness 前端插件（纯插件，不改 DSH 源码）。
 //
 // 行为：把内置 ChatView 思考状态行的 "Deep diving..." 换成 deep 系短语轮换。
 //   - 短语池 13 条（含原版 deep diving），洗牌袋抽取：一袋之内不重复、
@@ -20,7 +20,7 @@
 // 纯浏览器实现：无 require 依赖，host（Node）进程误导入本文件时静默跳过。
 if (typeof window !== "undefined" && window.__ModuleLoader__) {
 window.__ModuleLoader__.load({
-	id: "dsh-more-emotions",
+	id: "dsh-deep-verbs",
 	factory: (require) => {
 		"use strict";
 		var module = { exports: {} };
