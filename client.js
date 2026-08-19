@@ -12,10 +12,15 @@
 //     <div role="status" aria-live="polite">Deep diving...<span>…clock…</span></div>
 //   React 每秒重渲该组件，但 vdom 的字符串 child（"Deep diving..."）前后不变时
 //   React 不会回写 DOM 文本节点，外部改写得以原样保留；回合结束元素卸载、
-//   新回合挂载出新文本节点时，MutationObserver 捕获并认领。即便某天 React
-//   真的回写了内置文案，sweep/tick 也会把当前短语补回去。
+//   新回合挂载出新文本节点时，MutationObserver（仅订阅 childList）捕获并认领。
+//   即便某天 React 真的回写了内置文案，3 秒 tick 的 sweep 也会把短语补回去。
 //   只认精确的内置文本 "Deep diving..."；DSH 未来改掉这句文案时本插件
 //   自动退化为 no-op，绝不破坏界面。
+//   - 所有 DOM 写入走 setText()「同值不写」：Text.data 赋值即使值不变也会
+//     入队 characterData mutation record 并再次触发本插件自己的 observer；
+//     当轮换抽中原版 "deep diving"（与内置文案逐字相同）时，同值覆写会形成
+//     sweep→observe→sweep 微任务风暴，饿死事件循环、冻结整个前端
+//     （2026-08-17 DSH Desktop 冻结事故，CDP 三次采样实锤）。
 // Bundle 格式遵循 DSH client 模块系统：window.__ModuleLoader__.load({id, factory})。
 // 纯浏览器实现：无 require 依赖，host（Node）进程误导入本文件时静默跳过。
 if (typeof window !== "undefined" && window.__ModuleLoader__) {
@@ -84,9 +89,16 @@ window.__ModuleLoader__.load({
 			return document.querySelectorAll('div[role="status"]');
 		}
 
-		function applyTo(el, label) {
+		/** 同值不写：Text.data 赋值即使值不变也会入队 characterData mutation
+		 *  record，进而再次触发本插件自己的 MutationObserver；当 current 恰为
+		 *  "Deep diving..."（与内置文案逐字相同）时，同值覆写会形成
+		 *  sweep→observe→sweep 微任务风暴，饿死事件循环（2026-08-17 冻结事故）。
+		 *  返回本次是否真的写了 DOM。 */
+		function setText(el, label) {
 			var first = el.firstChild;
-			if (first && first.nodeType === 3) first.data = label;
+			if (!first || first.nodeType !== 3 || first.data === label) return false;
+			first.data = label;
+			return true;
 		}
 
 		/** 扫描：认领新挂载的思考状态行；兜底 React 回写。
@@ -103,17 +115,21 @@ window.__ModuleLoader__.load({
 				var first = el.firstChild;
 				if (!first || first.nodeType !== 3) continue;
 				if (tracked.has(el)) {
-					// 兜底：React 若回写了内置文案，恢复当前短语
-					if (first.data === BUILTIN && current !== null) first.data = current;
+					// 兜底：React 若回写了内置文案，恢复当前短语。
+					// current !== BUILTIN 是第二道闸：setText 已同值不写，
+					// 这里显式排除，防未来重构绕过守卫复活风暴。
+					if (first.data === BUILTIN && current !== null && current !== BUILTIN) setText(el, current);
 					continue;
 				}
 				if (first.data !== BUILTIN) continue; // 不是思考状态行，不碰
 				tracked.add(el);
 				claimed = true;
-				// 此前已无活动状态行 = 新回合开场：从袋里取新的一条
-				if (!hadTracked) current = nextPhrase();
-				if (current === null) current = nextPhrase();
-				first.data = current;
+				// 此前已无活动状态行 = 新回合开场：从袋里取新的一条；
+				// 取完立刻置位，同一批挂载的多行（多会话并排）复用同一条
+				if (!hadTracked) { current = nextPhrase(); hadTracked = true; }
+				// 抽中原版短语（current === BUILTIN）时同值守卫会跳过写入，
+				// 展示效果与写入完全一致，且不产生 mutation record。
+				setText(el, current);
 			}
 			return claimed;
 		}
@@ -129,7 +145,7 @@ window.__ModuleLoader__.load({
 			}
 			if (live.length === 0) return;
 			current = nextPhrase();
-			for (var j = 0; j < live.length; j++) applyTo(live[j], current);
+			for (var j = 0; j < live.length; j++) setText(live[j], current);
 		}
 
 		// observer 回调可能成串到达：合并到微任务里一次扫完
@@ -146,9 +162,12 @@ window.__ModuleLoader__.load({
 		function start() {
 			sweep();
 			setInterval(rotate, ROTATE_MS);
+			// 只订阅 childList：认领只关心"新挂载的状态行"这类结构变化；
+			// characterData 会让流式输出的每次文本变更（含秒表每秒更新、
+			// 每个流式 token）都触发一次全文档 querySelectorAll 扫描。
+			// React 回写内置文案的兜底改由 3 秒 tick 的 sweep 完成。
 			new MutationObserver(scheduleSweep).observe(document.body, {
 				childList: true,
-				characterData: true,
 				subtree: true
 			});
 		}
