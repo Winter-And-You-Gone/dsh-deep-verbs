@@ -1,6 +1,6 @@
 // dsh-deep-verbs 自测：不依赖浏览器，用极小 DOM shim + 假时钟直接驱动
 // client.js bundle 的注册 → materialize → apply → 认领/事件轮换/保底节流/
-// 兜底全路径。运行：node verify.mjs
+// 兜底/中英切换全路径。运行：node verify.mjs
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
 import assert from 'node:assert/strict'
@@ -11,8 +11,13 @@ function textNode(data) { return { nodeType: 3, data } }
 class FakeStatus {
   constructor(data = 'Deep diving...') {
     this.childNodes = [textNode(data)]
+    this.style = {}
+    this.title = ''
+    this._handlers = {}
   }
   get firstChild() { return this.childNodes[0] ?? null }
+  addEventListener(type, cb) { (this._handlers[type] ||= []).push(cb) }
+  click() { for (const cb of this._handlers.click || []) cb({}) }
   /** 模拟 15 秒后挂上计时 span：文本节点对象保持不变（React 的真实行为） */
   appendClock() { this.childNodes.push({ nodeType: 1, data: '2分09秒' }) }
   /** 模拟 React 回写内置文案（假想的兜底分支） */
@@ -83,6 +88,13 @@ globalThis.MutationObserver = class {
 }
 globalThis.setInterval = (cb, ms) => { maintain = cb; maintainMs = ms; return 1 }
 
+// ---- localStorage shim：语言选择持久化 ----
+const storage = new Map()
+globalThis.localStorage = {
+  getItem: (k) => (storage.has(k) ? storage.get(k) : null),
+  setItem: (k, v) => storage.set(k, v),
+}
+
 /** 模拟一批 childList mutation（新挂载若干节点）并等微任务里的合并处理跑完 */
 const flush = async () => { await Promise.resolve() }
 const fireMutations = async (...addedNodes) => {
@@ -106,9 +118,13 @@ assert.equal(maintainMs, 3000, '维护扫描周期应为 3000ms')
 const ALL = [
   'deep diving', 'deep seeking', 'deep delving', 'deep surfacing', 'deep breaching',
   'deep bubbling', 'deep singing', 'deep fishing', 'deep sinking', 'deep sleeping',
-  'deep napping', 'deep dreaming', 'deep cooking',
-].map((p) => p.charAt(0).toUpperCase() + p.slice(1) + '...')
+  'deep napping', 'deep dreaming', 'deep cooking',].map((p) => p.charAt(0).toUpperCase() + p.slice(1) + '...')
 const inPool = (s) => ALL.includes(s)
+const ALL_ZH = [
+  '深潜中', '深度求索中', '刨根问底中', '喷涂彩虹中', '跃出海面中',
+  '海底冒泡中', '引吭高歌中', '摸鱼中', '沉底中', '呼呼大睡中',
+  '偷偷打盹中', '白日做梦中', '小火慢炖中',].map((p) => p + '…')
+const inPoolZh = (s) => ALL_ZH.includes(s)
 
 // ---- 1) 认领：新回合挂载 → 短语池内的一条 ----
 const s1 = new FakeStatus()
@@ -231,6 +247,9 @@ assert.notEqual(s2.text, midLabel, '到点应补切')
     childNodes: [countingNode('Deep diving...')],
     get firstChild() { return this.childNodes[0] ?? null },
     get text() { return this.childNodes[0].data },
+    style: {},
+    title: '',
+    addEventListener() {},
   }
   statuses.length = 0
   statuses.push(s3)
@@ -280,4 +299,53 @@ assert.ok(observeOptions && observeOptions.childList === true && observeOptions.
 assert.ok(!observeOptions.characterData, '不得订阅 characterData（流式期间高频文本变更会放大扫描开销）')
 console.log('  订阅面：childList+subtree only（characterData 未订阅）')
 
-console.log('dsh-deep-verbs verify: all 14 checks passed ✓')
+// ---- 15) 点击切换中英文：同一短语换语言 + 多行同步 + 窗口重置 + 持久化 ----
+{
+  const a = new FakeStatus()
+  const b = new FakeStatus()
+  statuses.length = 0
+  statuses.push(a, b)
+  await fireMutations(a, b)
+  assert.ok(inPool(a.text) && inPool(b.text), `初始应为英文池：${a.text}`)
+  assert.equal(a.title, '点击切换为中文', '认领后应有可点击提示')
+  assert.equal(a.style.cursor, 'pointer', '认领后应有 pointer 光标')
+
+  const enIdx = ALL.indexOf(a.text)
+  a.click() // 点任意一行 → 所有活动行一起切换
+  assert.equal(a.text, ALL_ZH[enIdx], '点击后应显示同一条短语的中文版')
+  assert.equal(b.text, ALL_ZH[enIdx], '多行同步：其他活动行一起换语言')
+  assert.equal(a.title, '点击切换为 English', '切换后提示语应更新')
+  assert.equal(storage.get('dsh-deep-verbs:lang'), 'zh', '语言选择应写入 localStorage')
+
+  // 点击重置了保底窗口：3 秒内的事件不换词
+  await fireMutations(row('tool-call'))
+  assert.equal(a.text, ALL_ZH[enIdx], '切换语言后 3 秒内事件不得换词')
+  advance(3000) // 窗口边界：pending 补切一次
+  assert.ok(inPoolZh(a.text), `窗口外应在中文池内轮换：${a.text}`)
+  assert.notEqual(a.text, ALL_ZH[enIdx], '窗口外事件应换新词')
+
+  // 再点一次切回英文
+  b.click()
+  assert.ok(inPool(a.text), `再点一次应切回英文池：${a.text}`)
+  assert.equal(b.text, a.text, '切回英文后多行仍同步')
+  assert.equal(storage.get('dsh-deep-verbs:lang'), 'en', '切回英文应更新持久化')
+  console.log(`  点击切换：${ALL_ZH[enIdx]} ↔ 英文池，多行同步 + localStorage 记忆`)
+}
+
+// ---- 16) 语言持久化：重新 materialize 后从 localStorage 恢复中文 ----
+{
+  storage.set('dsh-deep-verbs:lang', 'zh')
+  vm.runInThisContext(src) // 重新注册 handoff（模拟页面重载）
+  const plugin2 = vm.runInThisContext('globalThis.__handoff.factory((id) => { throw new Error("unexpected require: " + id) })')
+  assert.equal(typeof plugin2.apply, 'function')
+  statuses.length = 0
+  plugin2.apply()
+  const s = new FakeStatus()
+  statuses.push(s)
+  await fireMutations(s)
+  assert.ok(inPoolZh(s.text), `重载后应从 localStorage 恢复中文池：${s.text}`)
+  storage.set('dsh-deep-verbs:lang', 'en') // 复位，防影响其他用例
+  console.log('  语言持久化：重载后恢复上次选择的中文池')
+}
+
+console.log('dsh-deep-verbs verify: all 16 checks passed ✓')
