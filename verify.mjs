@@ -118,12 +118,32 @@ assert.equal(maintainMs, 3000, '维护扫描周期应为 3000ms')
 const ALL = [
   'deep diving', 'deep seeking', 'deep delving', 'deep surfacing', 'deep breaching',
   'deep bubbling', 'deep singing', 'deep fishing', 'deep sinking', 'deep sleeping',
-  'deep napping', 'deep dreaming', 'deep cooking',].map((p) => p.charAt(0).toUpperCase() + p.slice(1) + '...')
+  'deep napping', 'deep dreaming', 'deep cooking',
+  // ---- Claude Code spinner 词表扩充（与 client.js 顺序一致）----
+  'deep baking', 'deep brewing', 'deep caramelizing', 'deep fermenting', 'deep flambéing',
+  'deep frosting', 'deep garnishing', 'deep julienning', 'deep kneading', 'deep leavening',
+  'deep marinating', 'deep proofing', 'deep sautéing', 'deep seasoning', 'deep simmering',
+  'deep stewing', 'deep tempering', 'deep whisking', 'deep zesting', 'deep spelunking',
+  'deep burrowing', 'deep ruminating', 'deep incubating', 'deep percolating', 'deep honking',
+  'deep noodling', 'deep doodling', 'deep waddling', 'deep frolicking', 'deep moseying',
+  'deep moonwalking', 'deep photosynthesizing', 'deep precipitating', 'deep combobulating',
+  'deep recombobulating', 'deep levitating', 'deep metamorphosing', 'deep zigzagging',
+  'deep boondoggling', 'deep gallivanting',
+].map((p) => p.charAt(0).toUpperCase() + p.slice(1) + '...')
 const inPool = (s) => ALL.includes(s)
 const ALL_ZH = [
   '深潜中', '深度求索中', '刨根问底中', '喷涂彩虹中', '跃出海面中',
   '海底冒泡中', '引吭高歌中', '摸鱼中', '沉底中', '呼呼大睡中',
-  '偷偷打盹中', '白日做梦中', '小火慢炖中',].map((p) => p + '…')
+  '偷偷打盹中', '白日做梦中', '小火慢炖中',
+  '烘焙中', '酿造中', '熬糖色中', '发酵中', '喷火炙烤中',
+  '抹奶油中', '摆盘中', '切丝中', '揉面中', '发面中',
+  '腌制入味中', '醒面中', '爆炒中', '调味中', '咕嘟咕嘟中',
+  '文火炖煮中', '回火中', '打发中', '削皮中', '洞窟探秘中',
+  '挖洞中', '反刍中', '孵化中', '渗滤中', '哔哔鸣笛中',
+  '瞎鼓捣中', '涂鸦中', '摇摇晃晃中', '撒欢中', '溜达中',
+  '太空步中', '光合作用中', '沉淀中', '拼拼凑凑中', '重组中',
+  '悬空冥想中', '蜕变中', '蛇皮走位中', '瞎忙活中', '到处浪中',
+].map((p) => p + '…')
 const inPoolZh = (s) => ALL_ZH.includes(s)
 
 // ---- 1) 认领：新回合挂载 → 短语池内的一条 ----
@@ -145,7 +165,7 @@ for (let i = 0; i < 15; i++) {
 }
 const unique = new Set(labels)
 assert.ok(unique.size >= 10, `16 次展示应覆盖大部分短语，实际 ${unique.size} 种`)
-console.log(`  事件轮换：16 个事件周期出现 ${unique.size}/13 种，无连续重复`)
+console.log(`  事件轮换：16 个事件周期出现 ${unique.size}/53 种，无连续重复`)
 
 // ---- 2b) 长时间纯思考（无新行挂载、无待切事件）短语保持不变 ----
 const quietLabel = s1.text
@@ -255,14 +275,14 @@ assert.notEqual(s2.text, midLabel, '到点应补切')
   statuses.push(s3)
   await fireMutations(s3) // 认领（写入 0 或 1 次均合法，取决于袋首是否抽中原版）
 
-  // 驱动事件轮换直到抽中原版短语（13 条洗牌袋，≤13 次切换必现）
+  // 驱动事件轮换直到抽中原版短语（53 条洗牌袋，≤53 次切换必现）
   let hit = 0
-  for (let i = 0; i < 26 && s3.text !== 'Deep diving...'; i++) {
+  for (let i = 0; i < 60 && s3.text !== 'Deep diving...'; i++) {
     advance(3000)
     await fireMutations(row('tool-call'))
     hit++
   }
-  assert.equal(s3.text, 'Deep diving...', '26 次事件内应轮换到原版短语')
+  assert.equal(s3.text, 'Deep diving...', '60 次事件内应轮换到原版短语')
 
   // 稳态风暴检验：current === BUILTIN 窗口内，sweep 循环与维护扫描零写入
   const steady = writes

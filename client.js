@@ -1,7 +1,7 @@
 // dsh-deep-verbs: DeepSeek Harness 前端插件（纯插件，不改 DSH 源码）。
 //
 // 行为：把内置 ChatView 思考状态行的 "Deep diving..." 换成 deep 系短语轮换。
-//   - 短语池 13 条（含原版 deep diving），洗牌袋抽取：一袋之内不重复、
+//   - 短语池 53 条（含原版 deep diving），洗牌袋抽取：一袋之内不重复、
 //     袋与袋交界也不连出同一条；
 //   - 事件驱动轮换：对话区新挂载「思考/回答段」(assistant-step) 或「工具调用」
 //     (tool-call / model-retry) 行时切换到下一条短语；长时间纯思考（没有新行
@@ -11,7 +11,7 @@
 //   - 回合开场（状态行首次挂载）随机一条开场短语；
 //   - 同一时刻多个状态行（多会话并排）同步显示同一条（事件不区分会话）；
 //   - 计时器（15 秒后出现的 "N分N秒"）是兄弟 <span>，不受影响；
-//   - 中英双语：13 条短语各有英文/中文版本（索引一一对应），点击思考状态行
+//   - 中英双语：53 条短语各有英文/中文版本（索引一一对应），点击思考状态行
 //     在两种语言间切换：同一条短语换语言展示、不重新抽取；语言选择存
 //     localStorage，重载后恢复。
 //
@@ -76,7 +76,7 @@ window.__ModuleLoader__.load({
 		var FLOW_KIND_ATTR = "data-chat-flow-kind";
 		var FLOW_SEL = "[data-chat-flow-kind]";
 
-		// ---- 短语池：英/中各 13 条，索引一一对应（点击切换语言时保留
+		// ---- 短语池：英/中各 53 条，索引一一对应（点击切换语言时保留
 		//      同一条短语）；展示：英文首字母大写 + "..."，中文「…中」
 		//      进行时 + "…"（与英文 -ing 对应，俏皮向） ----
 		var PHRASES_EN = [
@@ -92,7 +92,50 @@ window.__ModuleLoader__.load({
 			"deep sleeping",  // 睡着了（长思考自嘲）
 			"deep napping",   // 打盹中（长思考自嘲）
 			"deep dreaming",  // 做梦中
-			"deep cooking"    // let me cook		];
+			"deep cooking",   // let me cook
+			// ---- 以下扩充来自 Claude Code spinner 词表
+			//      （github.com/ConardLi/easy-agent）----
+			"deep baking",    // 烹饪系：烘焙
+			"deep brewing",   // 烹饪系：酿造
+			"deep caramelizing", // 烹饪系：熬糖色
+			"deep fermenting",   // 烹饪系：发酵
+			"deep flambéing",    // 烹饪系：喷火炙烤
+			"deep frosting",     // 烹饪系：抹奶油
+			"deep garnishing",   // 烹饪系：摆盘
+			"deep julienning",   // 烹饪系：切丝
+			"deep kneading",     // 烹饪系：揉面
+			"deep leavening",    // 烹饪系：发面
+			"deep marinating",   // 烹饪系：腌制入味
+			"deep proofing",     // 烹饪系：醒面（面团休息=思考）
+			"deep sautéing",     // 烹饪系：爆炒
+			"deep seasoning",    // 烹饪系：调味
+			"deep simmering",    // 烹饪系：咕嘟冒泡
+			"deep stewing",      // 烹饪系：文火炖煮
+			"deep tempering",    // 烹饪系：回火
+			"deep whisking",     // 烹饪系：打发
+			"deep zesting",      // 烹饪系：削皮
+			"deep spelunking",   // 探索：探洞（deep diving 的地洞亲戚）
+			"deep burrowing",    // 探索：往地底钻
+			"deep ruminating",   // 头脑：反刍式思考
+			"deep incubating",   // 头脑：孵蛋等结果
+			"deep percolating",  // 头脑：咖啡渗滤
+			"deep honking",      // 鲸鱼：鸣笛（whale honk）
+			"deep noodling",     // 俏皮：瞎鼓捣
+			"deep doodling",     // 俏皮：涂鸦开小差
+			"deep waddling",     // 俏皮：摇摇晃晃
+			"deep frolicking",   // 俏皮：撒欢
+			"deep moseying",     // 俏皮：慢悠悠溜达
+			"deep moonwalking",  // 俏皮：太空步
+			"deep photosynthesizing", // 摸鱼：光合作用发呆
+			"deep precipitating",     // 科学：沉淀
+			"deep combobulating",     // 存在：拼拼凑凑
+			"deep recombobulating",   // 存在：重组
+			"deep levitating",        // 放飞：悬空冥想
+			"deep metamorphosing",    // 放飞：蜕变
+			"deep zigzagging",        // 放飞：蛇皮走位
+			"deep boondoggling",      // 放飞：瞎忙活
+			"deep gallivanting"       // 放飞：到处浪
+		];
 		var PHRASES_ZH = [
 			"深潜中",        // deep diving：原版
 			"深度求索中",    // deep seeking：DeepSeek 官方中文名，点题
@@ -106,7 +149,48 @@ window.__ModuleLoader__.load({
 			"呼呼大睡中",    // deep sleeping：睡着了（长思考自嘲）
 			"偷偷打盹中",    // deep napping：打盹中（长思考自嘲）
 			"白日做梦中",    // deep dreaming：做梦中
-			"小火慢炖中"     // deep cooking：let me cook（慢慢酝酿）		];
+			"小火慢炖中",    // deep cooking：let me cook（慢慢酝酿）
+			"烘焙中",        // deep baking
+			"酿造中",        // deep brewing
+			"熬糖色中",      // deep caramelizing
+			"发酵中",        // deep fermenting
+			"喷火炙烤中",    // deep flambéing
+			"抹奶油中",      // deep frosting
+			"摆盘中",        // deep garnishing
+			"切丝中",        // deep julienning
+			"揉面中",        // deep kneading
+			"发面中",        // deep leavening
+			"腌制入味中",    // deep marinating
+			"醒面中",        // deep proofing：面团休息=思考
+			"爆炒中",        // deep sautéing
+			"调味中",        // deep seasoning
+			"咕嘟咕嘟中",    // deep simmering
+			"文火炖煮中",    // deep stewing
+			"回火中",        // deep tempering
+			"打发中",        // deep whisking
+			"削皮中",        // deep zesting
+			"洞窟探秘中",    // deep spelunking
+			"挖洞中",        // deep burrowing
+			"反刍中",        // deep ruminating：反刍式思考
+			"孵化中",        // deep incubating
+			"渗滤中",        // deep percolating：咖啡慢慢滴
+			"哔哔鸣笛中",    // deep honking：鲸鱼鸣叫
+			"瞎鼓捣中",      // deep noodling
+			"涂鸦中",        // deep doodling
+			"摇摇晃晃中",    // deep waddling
+			"撒欢中",        // deep frolicking
+			"溜达中",        // deep moseying
+			"太空步中",      // deep moonwalking
+			"光合作用中",    // deep photosynthesizing：发呆晒太阳
+			"沉淀中",        // deep precipitating
+			"拼拼凑凑中",    // deep combobulating
+			"重组中",        // deep recombobulating
+			"悬空冥想中",    // deep levitating
+			"蜕变中",        // deep metamorphosing
+			"蛇皮走位中",    // deep zigzagging
+			"瞎忙活中",      // deep boondoggling
+			"到处浪中"       // deep gallivanting
+		];
 
 		function labelFor(idx) {
 			if (lang === "zh") return PHRASES_ZH[idx] + "…";

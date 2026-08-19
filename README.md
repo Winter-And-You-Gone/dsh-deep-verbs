@@ -2,7 +2,7 @@
 
 DeepSeek Harness（DSH）纯前端插件：给思考状态行加表情。
 
-内置 UI 在模型思考/执行时显示 `Deep diving...`（15 秒后附计时）。本插件把它扩展成 13 条 deep 系短语的**英/中双语池**：**每个回合开场随机一条；之后每当对话里新出现一个思考段或工具调用就换下一条，两次切换至少间隔 3 秒**（洗牌袋抽取，短期不重复、不连出同一条；窗口内的连续事件合并为一次补切），计时器不受影响。**点击思考状态行即可切换中/英文**——同一条短语换语言展示（不重新抽取），所有并排状态行同步切换，选择写入 `localStorage`，重载后自动恢复。
+内置 UI 在模型思考/执行时显示 `Deep diving...`（15 秒后附计时）。本插件把它扩展成 53 条 deep 系短语的**英/中双语池**：**每个回合开场随机一条；之后每当对话里新出现一个思考段或工具调用就换下一条，两次切换至少间隔 3 秒**（洗牌袋抽取，短期不重复、不连出同一条；窗口内的连续事件合并为一次补切），计时器不受影响。**点击思考状态行即可切换中/英文**——同一条短语换语言展示（不重新抽取），所有并排状态行同步切换，选择写入 `localStorage`，重载后自动恢复。
 
 ## 短语池（英文）
 
@@ -21,6 +21,51 @@ DeepSeek Harness（DSH）纯前端插件：给思考状态行加表情。
 | `Deep napping...` | 打盹中（长思考自嘲） |
 | `Deep dreaming...` | 做梦中 |
 | `Deep cooking...` | let me cook |
+
+> 前 13 条为原创 deep 系短语；其余 40 条扩充自 Claude Code 的 spinner 词表（`github.com/ConardLi/easy-agent`），按烹饪/探索/头脑/俏皮/科学/存在/放飞分类。
+
+| 短语 | 含义 |
+| --- | --- |
+| `Deep baking...` | 烹饪系：烘焙 |
+| `Deep brewing...` | 烹饪系：酿造 |
+| `Deep caramelizing...` | 烹饪系：熬糖色 |
+| `Deep fermenting...` | 烹饪系：发酵 |
+| `Deep flambéing...` | 烹饪系：喷火炙烤 |
+| `Deep frosting...` | 烹饪系：抹奶油 |
+| `Deep garnishing...` | 烹饪系：摆盘 |
+| `Deep julienning...` | 烹饪系：切丝 |
+| `Deep kneading...` | 烹饪系：揉面 |
+| `Deep leavening...` | 烹饪系：发面 |
+| `Deep marinating...` | 烹饪系：腌制入味 |
+| `Deep proofing...` | 烹饪系：醒面（面团休息=思考） |
+| `Deep sautéing...` | 烹饪系：爆炒 |
+| `Deep seasoning...` | 烹饪系：调味 |
+| `Deep simmering...` | 烹饪系：咕嘟冒泡 |
+| `Deep stewing...` | 烹饪系：文火炖煮 |
+| `Deep tempering...` | 烹饪系：回火 |
+| `Deep whisking...` | 烹饪系：打发 |
+| `Deep zesting...` | 烹饪系：削皮 |
+| `Deep spelunking...` | 探索：探洞（deep diving 的地洞亲戚） |
+| `Deep burrowing...` | 探索：往地底钻 |
+| `Deep ruminating...` | 头脑：反刍式思考 |
+| `Deep incubating...` | 头脑：孵蛋等结果 |
+| `Deep percolating...` | 头脑：咖啡渗滤 |
+| `Deep honking...` | 鲸鱼：鸣笛（whale honk） |
+| `Deep noodling...` | 俏皮：瞎鼓捣 |
+| `Deep doodling...` | 俏皮：涂鸦开小差 |
+| `Deep waddling...` | 俏皮：摇摇晃晃 |
+| `Deep frolicking...` | 俏皮：撒欢 |
+| `Deep moseying...` | 俏皮：慢悠悠溜达 |
+| `Deep moonwalking...` | 俏皮：太空步 |
+| `Deep photosynthesizing...` | 摸鱼：光合作用发呆 |
+| `Deep precipitating...` | 科学：沉淀 |
+| `Deep combobulating...` | 存在：拼拼凑凑 |
+| `Deep recombobulating...` | 存在：重组 |
+| `Deep levitating...` | 放飞：悬空冥想 |
+| `Deep metamorphosing...` | 放飞：蜕变 |
+| `Deep zigzagging...` | 放飞：蛇皮走位 |
+| `Deep boondoggling...` | 放飞：瞎忙活 |
+| `Deep gallivanting...` | 放飞：到处浪 |
 
 ## 短语池（中文）
 
@@ -41,6 +86,51 @@ DeepSeek Harness（DSH）纯前端插件：给思考状态行加表情。
 | `偷偷打盹中…` | `Deep napping...` | 打盹中（长思考自嘲） |
 | `白日做梦中…` | `Deep dreaming...` | 做梦中 |
 | `小火慢炖中…` | `Deep cooking...` | let me cook（慢慢酝酿） |
+
+> 以下 40 条与英文池扩充一一对应（同一索引 = 同一条短语）。
+
+| 短语 | 对应英文 | 含义 |
+| --- | --- | --- |
+| `烘焙中…` | `Deep baking...` | 烹饪系 |
+| `酿造中…` | `Deep brewing...` | 烹饪系 |
+| `熬糖色中…` | `Deep caramelizing...` | 烹饪系 |
+| `发酵中…` | `Deep fermenting...` | 烹饪系 |
+| `喷火炙烤中…` | `Deep flambéing...` | 烹饪系 |
+| `抹奶油中…` | `Deep frosting...` | 烹饪系 |
+| `摆盘中…` | `Deep garnishing...` | 烹饪系 |
+| `切丝中…` | `Deep julienning...` | 烹饪系 |
+| `揉面中…` | `Deep kneading...` | 烹饪系 |
+| `发面中…` | `Deep leavening...` | 烹饪系 |
+| `腌制入味中…` | `Deep marinating...` | 烹饪系 |
+| `醒面中…` | `Deep proofing...` | 面团休息=思考 |
+| `爆炒中…` | `Deep sautéing...` | 烹饪系 |
+| `调味中…` | `Deep seasoning...` | 烹饪系 |
+| `咕嘟咕嘟中…` | `Deep simmering...` | 烹饪系 |
+| `文火炖煮中…` | `Deep stewing...` | 烹饪系 |
+| `回火中…` | `Deep tempering...` | 烹饪系 |
+| `打发中…` | `Deep whisking...` | 烹饪系 |
+| `削皮中…` | `Deep zesting...` | 烹饪系 |
+| `洞窟探秘中…` | `Deep spelunking...` | 探洞 |
+| `挖洞中…` | `Deep burrowing...` | 往地底钻 |
+| `反刍中…` | `Deep ruminating...` | 反刍式思考 |
+| `孵化中…` | `Deep incubating...` | 孵蛋等结果 |
+| `渗滤中…` | `Deep percolating...` | 咖啡慢慢滴 |
+| `哔哔鸣笛中…` | `Deep honking...` | 鲸鱼鸣叫 |
+| `瞎鼓捣中…` | `Deep noodling...` | 俏皮 |
+| `涂鸦中…` | `Deep doodling...` | 开小差 |
+| `摇摇晃晃中…` | `Deep waddling...` | 俏皮 |
+| `撒欢中…` | `Deep frolicking...` | 俏皮 |
+| `溜达中…` | `Deep moseying...` | 慢悠悠 |
+| `太空步中…` | `Deep moonwalking...` | 俏皮 |
+| `光合作用中…` | `Deep photosynthesizing...` | 发呆晒太阳 |
+| `沉淀中…` | `Deep precipitating...` | 科学 |
+| `拼拼凑凑中…` | `Deep combobulating...` | 存在 |
+| `重组中…` | `Deep recombobulating...` | 存在 |
+| `悬空冥想中…` | `Deep levitating...` | 放飞 |
+| `蜕变中…` | `Deep metamorphosing...` | 放飞 |
+| `蛇皮走位中…` | `Deep zigzagging...` | 放飞 |
+| `瞎忙活中…` | `Deep boondoggling...` | 放飞 |
+| `到处浪中…` | `Deep gallivanting...` | 放飞 |
 
 ## 安装
 
