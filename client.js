@@ -10,7 +10,10 @@
 //     合并为窗口边界的一次补切（连续快速的工具调用只换一次词）；
 //   - 回合开场（状态行首次挂载）随机一条开场短语；
 //   - 同一时刻多个状态行（多会话并排）同步显示同一条（事件不区分会话）；
-//   - 计时器（15 秒后出现的 "N分N秒"）是兄弟 <span>，不受影响。
+//   - 计时器（15 秒后出现的 "N分N秒"）是兄弟 <span>，不受影响；
+//   - 中英双语：13 条短语各有英文/中文版本（索引一一对应），点击思考状态行
+//     在两种语言间切换：同一条短语换语言展示、不重新抽取；语言选择存
+//     localStorage，重载后恢复。
 //
 // 实现方式：DOM 文本节点改写，不覆盖任何渲染插槽。
 //   ui-conversation 的 TurnStatus 渲染结构是
@@ -30,6 +33,10 @@
 //     当轮换抽中原版 "deep diving"（与内置文案逐字相同）时，同值覆写会形成
 //     sweep→observe→sweep 微任务风暴，饿死事件循环、冻结整个前端
 //     （2026-08-17 DSH Desktop 冻结事故，CDP 三次采样实锤）。
+//   - 点击切换中英文：认领状态行时挂 click 监听，并加 cursor:pointer 与
+//     title 提示。React 每秒重渲该组件但 vdom 不含这两项（与文本节点同理，
+//     不会回写覆盖）；点击只换语言、保留当前短语，并重置保底节流窗口，
+//     防止随后的自动轮换立刻覆盖用户的选择。
 // Bundle 格式遵循 DSH client 模块系统：window.__ModuleLoader__.load({id, factory})。
 // 纯浏览器实现：无 require 依赖，host（Node）进程误导入本文件时静默跳过。
 if (typeof window !== "undefined" && window.__ModuleLoader__) {
@@ -50,6 +57,14 @@ window.__ModuleLoader__.load({
 		// ---- 维护扫描节奏：认领兜底 / React 回写修复（不推进短语） ----
 		var MAINTAIN_MS = 3000;
 
+		// ---- 语言：默认英文，点击状态行切换；localStorage 记忆，
+		//      重载后恢复（隐私模式等不可用场景下维持英文） ----
+		var LANG_KEY = "dsh-deep-verbs:lang";
+		var lang = "en";
+		try {
+			if (localStorage.getItem(LANG_KEY) === "zh") lang = "zh";
+		} catch (e) { /* 不可用则维持默认 */ }
+
 		// ---- 轮换事件源：新挂载对话行的 data-chat-flow-kind 触发集 ----
 		// assistant-step = 新的思考/回答段；tool-call = 新的（根）工具调用；
 		// model-retry = 重试即重新生成。user/steering/command 等非模型活动不算。
@@ -61,8 +76,10 @@ window.__ModuleLoader__.load({
 		var FLOW_KIND_ATTR = "data-chat-flow-kind";
 		var FLOW_SEL = "[data-chat-flow-kind]";
 
-		// ---- 短语池：展示为首字母大写 + "..." ----
-		var PHRASES = [
+		// ---- 短语池：英/中各 13 条，索引一一对应（点击切换语言时保留
+		//      同一条短语）；展示：英文首字母大写 + "..."，中文「…中」
+		//      进行时 + "…"（与英文 -ing 对应，俏皮向） ----
+		var PHRASES_EN = [
 			"deep diving",    // 原版：潜水
 			"deep seeking",   // 点题：deep seek 动词化
 			"deep delving",   // delve into，深入探究
@@ -75,11 +92,26 @@ window.__ModuleLoader__.load({
 			"deep sleeping",  // 睡着了（长思考自嘲）
 			"deep napping",   // 打盹中（长思考自嘲）
 			"deep dreaming",  // 做梦中
-			"deep cooking"    // let me cook
-		];
+			"deep cooking"    // let me cook		];
+		var PHRASES_ZH = [
+			"深潜中",        // deep diving：原版
+			"深度求索中",    // deep seeking：DeepSeek 官方中文名，点题
+			"刨根问底中",    // deep delving：delve into，深入探究
+			"喷涂彩虹中",    // deep surfacing：潜完上浮换气（鲸喷水柱）
+			"跃出海面中",    // deep breaching：鲸跃出水（whale logo 致敬）
+			"海底冒泡中",    // deep bubbling：在深海冒泡泡
+			"引吭高歌中",    // deep singing：鲸歌
+			"摸鱼中",        // deep fishing：深度摸鱼
+			"沉底中",        // deep sinking：沉下去慢慢想
+			"呼呼大睡中",    // deep sleeping：睡着了（长思考自嘲）
+			"偷偷打盹中",    // deep napping：打盹中（长思考自嘲）
+			"白日做梦中",    // deep dreaming：做梦中
+			"小火慢炖中"     // deep cooking：let me cook（慢慢酝酿）		];
 
-		function labelFor(phrase) {
-			return phrase.charAt(0).toUpperCase() + phrase.slice(1) + "...";
+		function labelFor(idx) {
+			if (lang === "zh") return PHRASES_ZH[idx] + "…";
+			var p = PHRASES_EN[idx];
+			return p.charAt(0).toUpperCase() + p.slice(1) + "...";
 		}
 
 		// ---- 洗牌袋：一袋抽完才补充，保证短期不重复；
@@ -88,7 +120,7 @@ window.__ModuleLoader__.load({
 		var lastIndex = -1;
 		function nextPhrase() {
 			if (bag.length === 0) {
-				bag = PHRASES.map(function (_, i) { return i; });
+				bag = PHRASES_EN.map(function (_, i) { return i; });
 				for (var i = bag.length - 1; i > 0; i--) {
 					var j = Math.floor(Math.random() * (i + 1));
 					var t = bag[i]; bag[i] = bag[j]; bag[j] = t;
@@ -99,7 +131,7 @@ window.__ModuleLoader__.load({
 				}
 			}
 			lastIndex = bag.pop();
-			return labelFor(PHRASES[lastIndex]);
+			return labelFor(lastIndex);
 		}
 
 		// ---- 改写状态 ----
@@ -138,6 +170,34 @@ window.__ModuleLoader__.load({
 			if (!first || first.nodeType !== 3 || first.data === label) return false;
 			first.data = label;
 			return true;
+		}
+
+		/** 认领时挂点击监听 + 可点击提示（cursor/title 不在 React vdom 里，
+		 *  重渲不会回写覆盖）。点击 = 用户主动操作：切换语言、保留当前短语、
+		 *  重置保底节流窗口防止自动轮换立刻覆盖，并同步所有活动状态行。 */
+		var toggleReady = new WeakSet();
+		function toggleHint() {
+			return lang === "zh" ? "点击切换为 English" : "点击切换为中文";
+		}
+		function onToggle() {
+			lang = lang === "zh" ? "en" : "zh";
+			try { localStorage.setItem(LANG_KEY, lang); } catch (e) { /* noop */ }
+			if (current === null || lastIndex < 0) return;
+			current = labelFor(lastIndex);
+			lastSwitchAt = Date.now();
+			pending = false;
+			var live = liveStatuses();
+			for (var j = 0; j < live.length; j++) {
+				setText(live[j], current);
+				live[j].title = toggleHint();
+			}
+		}
+		function attachToggle(el) {
+			if (toggleReady.has(el)) return;
+			toggleReady.add(el);
+			el.addEventListener("click", onToggle);
+			el.style.cursor = "pointer";
+			el.title = toggleHint();
 		}
 
 		/** 立即切换：取下一条短语同步到所有活动状态行。 */
@@ -191,6 +251,7 @@ window.__ModuleLoader__.load({
 				}
 				if (first.data !== BUILTIN) continue; // 不是思考状态行，不碰
 				tracked.add(el);
+				attachToggle(el);
 				// 此前已无活动状态行 = 新回合开场：从袋里取新的一条；
 				// 取完立刻置位，同一批挂载的多行（多会话并排）复用同一条。
 				// 开场词即本回合首次展示：重置节流窗口，并丢弃上一回合
