@@ -1,9 +1,9 @@
 {
   "name": "dsh-deep-verbs",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "type": "module",
   "main": "index.js",
-  "description": "DeepSeek Harness 纯插件：思考状态行文案轮换。把内置 UI 的 \"Deep diving...\" 扩展为 13 个 deep 系短语（deep seeking / deep breaching / deep fishing / deep napping ...），每个回合随机换一个，不改 DSH 源码。",
+  "description": "DeepSeek Harness 纯插件：思考状态行文案轮换。把内置 UI 的 \"Deep diving...\" 扩展为 13 个 deep 系短语（deep seeking / deep breaching / deep fishing / deep napping ...），回合开场随机一条，回合内随新思考段/工具调用切换（最短间隔 3 秒），不改 DSH 源码。",
   "license": "MIT",
   "engines": {
     "node": ">=20.3"
