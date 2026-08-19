@@ -7,7 +7,7 @@
 > Then this plugin is for you.
 
 A **pure plugin** for DeepSeek Harness (DSH) that only handles swapping the **status line copy**:
-1. **Random phrase per turn**: a bilingual (EN/ZH) pool of 53 "deep" phrases, drawn from a shuffled bag (no repeats within a bag, no same phrase across bag boundaries);
+1. **Random phrase per turn**: a bilingual (EN/ZH) pool of 73 "deep" phrases, drawn from a shuffled bag (no repeats within a bag, no same phrase across bag boundaries);
 2. **Event-driven rotation**: each new reasoning segment or tool call switches to the next phrase, at least 3 seconds apart (events inside the window merge into one catch-up switch at the window edge — rapid tool calls change the word only once);
 3. **Click to toggle language**: click the status line to re-display the current phrase in the other language (no re-draw), synced across all parallel sessions; the choice is stored in `localStorage` and restored on reload;
 4. **The timer is untouched**: the built-in "N分N秒" clock still appears after 15 seconds.
@@ -16,7 +16,7 @@ A **pure plugin** for DeepSeek Harness (DSH) that only handles swapping the **st
 
 > **Design reference**: the phrase-rotation play is inspired by **Claude Code**'s spinner verbs —
 > it samples a random gerund (*Wandering… / Combobulating… / Noodling…*) each time the spinner
-> mounts, much like "one random phrase per turn"; 40 of this plugin's phrases are directly
+> mounts, much like "one random phrase per turn"; 60 of this plugin's phrases are directly
 > borrowed from that same word list.
 
 ## Feature 1: random per turn + event-driven rotation
@@ -30,7 +30,7 @@ Deep cooking...           ← switches on each new segment / tool call
 深潜中…（1分23秒）         ← language toggles on click; timer still shows after 15s
 ```
 
-- **Shuffled-bag draw**: a bag of 53 indices is reshuffled only when exhausted — no short-term repeats, no same phrase across bag boundaries;
+- **Shuffled-bag draw**: a bag of 73 indices is reshuffled only when exhausted — no short-term repeats, no same phrase across bag boundaries;
 - **Random at turn start**: the first status row of a turn draws a phrase; rows mounted in the same batch (parallel sessions) share it;
 - **Event-driven**: a newly mounted `assistant-step` (reasoning/answer segment) or `tool-call` (tool call, incl. retries) row advances the phrase; streamed tokens never mount rows, so no false triggers; re-inserted rows are deduped;
 - **Throttle floor**: at least 3 seconds between switches (`MIN_SWITCH_MS`); events inside the window merge into one catch-up switch at the boundary;
@@ -69,9 +69,9 @@ Deep Seeking...            ← click the status line (pointer cursor + tooltip)
 | `Deep dreaming...` | `白日做梦中…` | daydreaming |
 | `Deep cooking...` | `小火慢炖中…` | let me cook |
 
-### 40 more, borrowed from Claude Code's spinner verbs
+### 60 more, borrowed from Claude Code's spinner verbs
 
-> The following 40 phrases are taken from Claude Code's spinner word list
+> The following 60 phrases are taken from Claude Code's spinner word list (40 introduced in v0.5.0, 20 added in v0.6.0)
 > (`github.com/ConardLi/easy-agent`), grouped as culinary / exploration / brains / whale /
 > whimsy / slacking / science / existential / free-spirited.
 
@@ -117,6 +117,26 @@ Deep Seeking...            ← click the status line (pointer cursor + tooltip)
 | Free-spirited | `Deep zigzagging...` | `蛇皮走位中…` |
 | Free-spirited | `Deep boondoggling...` | `瞎忙活中…` |
 | Free-spirited | `Deep gallivanting...` | `到处浪中…` |
+| Craft | `Deep crafting...` | `打磨中…` |
+| Craft | `Deep forging...` | `锻造中…` |
+| Brains | `Deep deliberating...` | `斟酌中…` |
+| Brains | `Deep inferring...` | `推演中…` |
+| Brains | `Deep puzzling...` | `解谜中…` |
+| Brains | `Deep reticulating...` | `编织中…` |
+| Wandering | `Deep wandering...` | `游弋中…` |
+| Wandering | `Deep meandering...` | `漫步中…` |
+| Wandering | `Deep orbiting...` | `绕飞中…` |
+| Fluid | `Deep cascading...` | `飞瀑中…` |
+| Fluid | `Deep churning...` | `翻腾中…` |
+| Fluid | `Deep billowing...` | `鼓涌中…` |
+| Fluid | `Deep swirling...` | `回旋中…` |
+| Fluid | `Deep undulating...` | `起伏中…` |
+| Flight | `Deep fluttering...` | `扑棱中…` |
+| Flight | `Deep swooping...` | `俯冲中…` |
+| Groove | `Deep shimmying...` | `扭摆中…` |
+| Groove | `Deep grooving...` | `踩点中…` |
+| Slacking | `Deep lollygagging...` | `磨洋工中…` |
+| Growth | `Deep sprouting...` | `冒芽中…` |
 
 ## Installation
 

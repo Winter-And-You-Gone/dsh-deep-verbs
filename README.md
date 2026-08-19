@@ -7,14 +7,14 @@
 > 那这个插件就是为你准备的。
 
 DeepSeek Harness（DSH）**纯插件**，只负责给思考状态行**换文案**：
-1. **回合开场随机一条**：53 条 deep 系短语的英/中双语池，洗牌袋抽取（一袋之内不重复、袋与袋交界也不连出同一条）；
+1. **回合开场随机一条**：73 条 deep 系短语的英/中双语池，洗牌袋抽取（一袋之内不重复、袋与袋交界也不连出同一条）；
 2. **事件驱动轮换**：对话里每新出现一个思考段或工具调用就换下一条，两次切换至少间隔 3 秒（窗口内的连续事件合并为一次补切——连发工具调用只换一次词）；
 3. **点击切换中英文**：点一下状态行，当前短语**换语言展示、不重新抽取**，所有并排状态行同步切换，选择存 `localStorage`、重载后恢复；
 4. **计时器不受影响**：内置 15 秒后出现的「N分N秒」照常显示。
 
 **不修改任何 `@deepseek-ai/dsh-*` 源码。**
 
-> **设计参考**：本插件的短语轮换玩法参考了 **Claude Code** 的 spinner 词表——它每次思考挂载时随机抽一个动名词（*Wandering… / Combobulating… / Noodling…*），与「每次开场随机一条」如出一辙；本插件词表也直接扩充了 40 条 Claude Code 同款动词。
+> **设计参考**：本插件的短语轮换玩法参考了 **Claude Code** 的 spinner 词表——它每次思考挂载时随机抽一个动名词（*Wandering… / Combobulating… / Noodling…*），与「每次开场随机一条」如出一辙；本插件词表也直接扩充了 60 条 Claude Code 同款动词。
 
 ## 功能一：回合开场随机 + 事件驱动轮换
 
@@ -27,7 +27,7 @@ Deep cooking...           ← 之后每新挂载一个思考段/工具调用就�
 深潜中…（1分23秒）         ← 中英随点击切换；15 秒后右侧照常出现计时
 ```
 
-- **洗牌袋抽取**：一袋 53 个索引抽完才重洗，短期不重复、跨袋也不连出同一条；
+- **洗牌袋抽取**：一袋 73 个索引抽完才重洗，短期不重复、跨袋也不连出同一条；
 - **回合开场随机**：状态行首次挂载时从袋里取一条，同一批挂载的多行（多会话并排）显示同一条；
 - **事件驱动**：新挂载 `assistant-step`（思考/回答段）或 `tool-call`（工具调用，含重试）行即换下一条；流式 token 不挂新行，不会误触发；同一行被移除重插入也不重复计数；
 - **保底节流**：两次切换至少间隔 3 秒（`MIN_SWITCH_MS`），窗口内的事件合并到窗口边界补切一次；
@@ -66,9 +66,9 @@ Deep Seeking...            ← 点击状态行（悬停有提示、光标变手�
 | `Deep dreaming...` | `白日做梦中…` | 做梦中 |
 | `Deep cooking...` | `小火慢炖中…` | let me cook（慢慢酝酿） |
 
-### 扩充 40 条（Claude Code spinner 词表）
+### 扩充 60 条（Claude Code spinner 词表）
 
-> 以下 40 条取自 Claude Code 的 spinner 词表（`github.com/ConardLi/easy-agent`），按烹饪/探索/头脑/鲸鱼/俏皮/摸鱼/科学/存在/放飞分类。
+> 以下 60 条取自 Claude Code 的 spinner 词表（`github.com/ConardLi/easy-agent`），按烹饪/探索/头脑/鲸鱼/俏皮/摸鱼/科学/存在/放飞分类——其中 40 条为 v0.5.0 引入，20 条为 v0.6.0 追加。
 
 | 分类 | 英文 | 中文 |
 | --- | --- | --- |
@@ -112,6 +112,26 @@ Deep Seeking...            ← 点击状态行（悬停有提示、光标变手�
 | 放飞 | `Deep zigzagging...` | `蛇皮走位中…` |
 | 放飞 | `Deep boondoggling...` | `瞎忙活中…` |
 | 放飞 | `Deep gallivanting...` | `到处浪中…` |
+| 营造 | `Deep crafting...` | `打磨中…` |
+| 营造 | `Deep forging...` | `锻造中…` |
+| 头脑 | `Deep deliberating...` | `斟酌中…` |
+| 头脑 | `Deep inferring...` | `推演中…` |
+| 头脑 | `Deep puzzling...` | `解谜中…` |
+| 头脑 | `Deep reticulating...` | `编织中…` |
+| 漫游 | `Deep wandering...` | `游弋中…` |
+| 漫游 | `Deep meandering...` | `漫步中…` |
+| 漫游 | `Deep orbiting...` | `绕飞中…` |
+| 流体 | `Deep cascading...` | `飞瀑中…` |
+| 流体 | `Deep churning...` | `翻腾中…` |
+| 流体 | `Deep billowing...` | `鼓涌中…` |
+| 流体 | `Deep swirling...` | `回旋中…` |
+| 流体 | `Deep undulating...` | `起伏中…` |
+| 飞翔 | `Deep fluttering...` | `扑棱中…` |
+| 飞翔 | `Deep swooping...` | `俯冲中…` |
+| 律动 | `Deep shimmying...` | `扭摆中…` |
+| 律动 | `Deep grooving...` | `踩点中…` |
+| 摸鱼 | `Deep lollygagging...` | `磨洋工中…` |
+| 生长 | `Deep sprouting...` | `冒芽中…` |
 
 ## 安装
 

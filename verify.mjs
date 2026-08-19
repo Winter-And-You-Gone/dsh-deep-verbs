@@ -129,6 +129,12 @@ const ALL = [
   'deep moonwalking', 'deep photosynthesizing', 'deep precipitating', 'deep combobulating',
   'deep recombobulating', 'deep levitating', 'deep metamorphosing', 'deep zigzagging',
   'deep boondoggling', 'deep gallivanting',
+  // ---- v0.6.0 追加 20 条（与 client.js 同步）----
+  'deep crafting', 'deep forging', 'deep deliberating', 'deep inferring',
+  'deep puzzling', 'deep reticulating', 'deep wandering', 'deep meandering',
+  'deep orbiting', 'deep cascading', 'deep churning', 'deep billowing',
+  'deep swirling', 'deep undulating', 'deep fluttering', 'deep swooping',
+  'deep shimmying', 'deep grooving', 'deep lollygagging', 'deep sprouting',
 ].map((p) => p.charAt(0).toUpperCase() + p.slice(1) + '...')
 const inPool = (s) => ALL.includes(s)
 const ALL_ZH = [
@@ -143,6 +149,12 @@ const ALL_ZH = [
   '瞎鼓捣中', '涂鸦中', '摇摇晃晃中', '撒欢中', '溜达中',
   '太空步中', '光合作用中', '沉淀中', '拼拼凑凑中', '重组中',
   '悬空冥想中', '蜕变中', '蛇皮走位中', '瞎忙活中', '到处浪中',
+  // ---- v0.6.0 追加 20 条 ----
+  '打磨中', '锻造中', '斟酌中', '推演中',
+  '解谜中', '编织中', '游弋中', '漫步中',
+  '绕飞中', '飞瀑中', '翻腾中', '鼓涌中',
+  '回旋中', '起伏中', '扑棱中', '俯冲中',
+  '扭摆中', '踩点中', '磨洋工中', '冒芽中',
 ].map((p) => p + '…')
 const inPoolZh = (s) => ALL_ZH.includes(s)
 
@@ -165,7 +177,7 @@ for (let i = 0; i < 15; i++) {
 }
 const unique = new Set(labels)
 assert.ok(unique.size >= 10, `16 次展示应覆盖大部分短语，实际 ${unique.size} 种`)
-console.log(`  事件轮换：16 个事件周期出现 ${unique.size}/53 种，无连续重复`)
+console.log(`  事件轮换：16 个事件周期出现 ${unique.size}/73 种，无连续重复`)
 
 // ---- 2b) 长时间纯思考（无新行挂载、无待切事件）短语保持不变 ----
 const quietLabel = s1.text
@@ -275,14 +287,14 @@ assert.notEqual(s2.text, midLabel, '到点应补切')
   statuses.push(s3)
   await fireMutations(s3) // 认领（写入 0 或 1 次均合法，取决于袋首是否抽中原版）
 
-  // 驱动事件轮换直到抽中原版短语（53 条洗牌袋，≤53 次切换必现）
+  // 驱动事件轮换直到抽中原版短语（一袋 73，袋尾跨袋会换位，150 内必现）
   let hit = 0
-  for (let i = 0; i < 60 && s3.text !== 'Deep diving...'; i++) {
+  for (let i = 0; i < 150 && s3.text !== 'Deep diving...'; i++) {
     advance(3000)
     await fireMutations(row('tool-call'))
     hit++
   }
-  assert.equal(s3.text, 'Deep diving...', '60 次事件内应轮换到原版短语')
+  assert.equal(s3.text, 'Deep diving...', '150 次事件内应轮换到原版短语')
 
   // 稳态风暴检验：current === BUILTIN 窗口内，sweep 循环与维护扫描零写入
   const steady = writes

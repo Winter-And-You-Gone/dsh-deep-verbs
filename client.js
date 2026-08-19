@@ -1,7 +1,7 @@
 // dsh-deep-verbs: DeepSeek Harness 前端插件（纯插件，不改 DSH 源码）。
 //
 // 行为：把内置 ChatView 思考状态行的 "Deep diving..." 换成 deep 系短语轮换。
-//   - 短语池 53 条（含原版 deep diving），洗牌袋抽取：一袋之内不重复、
+//   - 短语池 73 条（含原版 deep diving），洗牌袋抽取：一袋之内不重复、
 //     袋与袋交界也不连出同一条；
 //   - 事件驱动轮换：对话区新挂载「思考/回答段」(assistant-step) 或「工具调用」
 //     (tool-call / model-retry) 行时切换到下一条短语；长时间纯思考（没有新行
@@ -11,7 +11,7 @@
 //   - 回合开场（状态行首次挂载）随机一条开场短语；
 //   - 同一时刻多个状态行（多会话并排）同步显示同一条（事件不区分会话）；
 //   - 计时器（15 秒后出现的 "N分N秒"）是兄弟 <span>，不受影响；
-//   - 中英双语：53 条短语各有英文/中文版本（索引一一对应），点击思考状态行
+//   - 中英双语：73 条短语各有英文/中文版本（索引一一对应），点击思考状态行
 //     在两种语言间切换：同一条短语换语言展示、不重新抽取；语言选择存
 //     localStorage，重载后恢复。
 //
@@ -76,7 +76,7 @@ window.__ModuleLoader__.load({
 		var FLOW_KIND_ATTR = "data-chat-flow-kind";
 		var FLOW_SEL = "[data-chat-flow-kind]";
 
-		// ---- 短语池：英/中各 53 条，索引一一对应（点击切换语言时保留
+		// ---- 短语池：英/中各 73 条，索引一一对应（点击切换语言时保留
 		//      同一条短语）；展示：英文首字母大写 + "..."，中文「…中」
 		//      进行时 + "…"（与英文 -ing 对应，俏皮向） ----
 		var PHRASES_EN = [
@@ -134,7 +134,28 @@ window.__ModuleLoader__.load({
 			"deep metamorphosing",    // 放飞：蜕变
 			"deep zigzagging",        // 放飞：蛇皮走位
 			"deep boondoggling",      // 放飞：瞎忙活
-			"deep gallivanting"       // 放飞：到处浪
+			"deep gallivanting",      // 放飞：到处浪
+			// ---- v0.6.0 追加 20 条：头脑/营造补 6 + 漫游/太空补 3 + 流体补 5 + 飞翔/律动补 4 + 摸鱼/生长补 2 ----
+			"deep crafting",      // 营造：打磨
+			"deep forging",       // 营造：锻造
+			"deep deliberating",  // 头脑：斟酌
+			"deep inferring",     // 头脑：推演
+			"deep puzzling",      // 头脑：解谜
+			"deep reticulating",  // 头脑：编织（reticulating splines 老梗）
+			"deep wandering",     // 漫游：游弋（deep diving 的海面姊妹）
+			"deep meandering",    // 漫游：漫步
+			"deep orbiting",      // 漫游：绕飞
+			"deep cascading",     // 流体：飞瀑
+			"deep churning",      // 流体：翻腾
+			"deep billowing",     // 流体：鼓涌
+			"deep swirling",      // 流体：回旋
+			"deep undulating",    // 流体：起伏
+			"deep fluttering",    // 飞翔：扑棱
+			"deep swooping",      // 飞翔：俯冲
+			"deep shimmying",     // 律动：扭摆
+			"deep grooving",      // 律动：踩点
+			"deep lollygagging",  // 摸鱼：磨洋工
+			"deep sprouting"      // 生长：冒芽
 		];
 		var PHRASES_ZH = [
 			"深潜中",        // deep diving：原版
@@ -189,7 +210,28 @@ window.__ModuleLoader__.load({
 			"蜕变中",        // deep metamorphosing
 			"蛇皮走位中",    // deep zigzagging
 			"瞎忙活中",      // deep boondoggling
-			"到处浪中"       // deep gallivanting
+			"到处浪中",      // deep gallivanting
+			// ---- v0.6.0 追加 20 条（与 PHRASES_EN 同索引一一对应）----
+			"打磨中",        // deep crafting
+			"锻造中",        // deep forging
+			"斟酌中",        // deep deliberating
+			"推演中",        // deep inferring
+			"解谜中",        // deep puzzling
+			"编织中",        // deep reticulating
+			"游弋中",        // deep wandering
+			"漫步中",        // deep meandering
+			"绕飞中",        // deep orbiting
+			"飞瀑中",        // deep cascading
+			"翻腾中",        // deep churning
+			"鼓涌中",        // deep billowing
+			"回旋中",        // deep swirling
+			"起伏中",        // deep undulating
+			"扑棱中",        // deep fluttering
+			"俯冲中",        // deep swooping
+			"扭摆中",        // deep shimmying
+			"踩点中",        // deep grooving
+			"磨洋工中",      // deep lollygagging
+			"冒芽中"         // deep sprouting
 		];
 
 		function labelFor(idx) {
