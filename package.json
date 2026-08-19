@@ -20,11 +20,15 @@
   "files": [
     "index.js",
     "client.js",
+    "cordis.patch.yml",
     "install.ps1",
     "LICENSE",
     "README.md"
   ],
   "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
     "client": {
       "platform": "web"
     }
