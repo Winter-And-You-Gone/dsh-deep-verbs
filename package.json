@@ -23,7 +23,8 @@
     "cordis.patch.yml",
     "install.ps1",
     "LICENSE",
-    "README.md"
+    "README.md",
+    "README.en.md"
   ],
   "dsh": {
     "bundle": {
